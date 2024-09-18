@@ -56,24 +56,26 @@ let filter_tri t =
 
 let furthest_corner t =
   let p1, p2, p3 = t in
-  let pt = if p1.z < p2.z then p1 else p2 in
-  if pt.z < p3.z then pt.z else p3.z
+  let pt = if p1.z > p2.z then p1 else p2 in
+  if pt.z > p3.z then pt else p3
 
 let point_z_cmp v1 v2 : int =
   let t1, _ = v1 and t2, _ = v2 in
   let a = furthest_corner t1 and b = furthest_corner t2 in
-  if a == b then
-    let a = midpoint t1 and b = midpoint t2 in
-    if a.z == b.z then 0 else if a.z > b.z then 1 else -1
-  else if a > b then 1
+  if Float.abs (a.z -. b.z) < Float.epsilon then
+    let ma = midpoint t1 and mb = midpoint t2 in
+    if Float.abs (ma.z -. mb.z) < Float.epsilon then 0
+    else if ma.z > mb.z then 1
+    else -1
+  else if a.z > b.z then 1
   else -1
 
 let proj ft s e : Primitives.point =
   let width, height = Screen.dimensions s in
-  let m = 1000. +. (cos (ft /. 30.) *. 200.) in
+  let m = 500. +. (cos (ft /. 30.) *. 200.) in
   {
-    x = (width / 2) + int_of_float (m *. e.x /. (e.z +. 400.));
-    y = (height / 2) + int_of_float (m *. e.y /. (e.z +. 400.));
+    x = (width / 2) + int_of_float (m *. e.x /. ((-1. *. e.z) -. 400.));
+    y = (height / 2) + int_of_float (m *. e.y /. ((-1. *. e.z) -. 400.));
   }
 
 let render_to_primitives ft s points =
@@ -106,8 +108,9 @@ let tick ship _t s _p i =
          rotate_y (0.02 *. ft) p
          |> rotate_x (0.01 *. ft)
          |> rotate_z (0.005 *. ft))
-  |> model coords |> List.sort point_z_cmp |> render_to_primitives ft s
-  |> List.filter filter_tri |> Framebuffer.render fb;
+  |> model coords |> List.sort point_z_cmp |> List.rev
+  |> render_to_primitives ft s |> List.filter filter_tri
+  |> Framebuffer.render fb;
 
   fb
 
