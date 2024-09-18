@@ -12,7 +12,7 @@ let color_mung cols =
 
 let model coordlist points =
   List.mapi
-    (fun i (a, b, c) -> ((points.(a), points.(b), points.(c)), i + 1))
+    (fun i (a, b, c) -> ((points.(a), points.(b), points.(c)), i + 2))
     coordlist
 
 let rotate_x (a : float) (p : point) : point =
@@ -65,9 +65,9 @@ let point_z_cmp v1 v2 : int =
   if Float.abs (a.z -. b.z) < Float.epsilon then
     let ma = midpoint t1 and mb = midpoint t2 in
     if Float.abs (ma.z -. mb.z) < Float.epsilon then 0
-    else if ma.z > mb.z then 1
+    else if ma.z < mb.z then 1
     else -1
-  else if a.z > b.z then 1
+  else if a.z < b.z then 1
   else -1
 
 let proj ft s e : Primitives.point =
@@ -78,7 +78,15 @@ let proj ft s e : Primitives.point =
     y = (height / 2) + int_of_float (m *. e.y /. ((-1. *. e.z) -. 400.));
   }
 
-let render_to_primitives ft s points =
+let render_to_primitives_lines ft s points =
+  List.map
+    (fun t ->
+      let (a, b, c), _ = t in
+      let p2 = Primitives.Triangle (proj ft s a, proj ft s b, proj ft s c, 1) in
+      p2)
+    points
+
+let render_to_primitives_solid ft s points =
   List.map
     (fun t ->
       let (a, b, c), i = t in
@@ -88,15 +96,14 @@ let render_to_primitives ft s points =
       p2)
     points
 
-let p = ref 0.
-let prev = ref Base.KeyCodeSet.empty
-
-let tick ship _t s _p i =
-  (* input *)
-  if Base.KeyCodeSet.is_empty !prev && Base.KeyCodeSet.is_empty i then
-    p := !p +. 1.;
-  let ft = !p in
-  prev := i;
+let tick ship t s _p i =
+  (* input - just used to pause animation *)
+  let render_to_primitives =
+    match Base.KeyCodeSet.is_empty i with
+    | false -> render_to_primitives_lines
+    | true -> render_to_primitives_solid
+  in
+  let ft = float_of_int t in
 
   (* cls *)
   let fb = Framebuffer.init (Screen.dimensions s) (fun _ _ -> 0) in
@@ -107,15 +114,14 @@ let tick ship _t s _p i =
   |> Array.map (fun p ->
          rotate_y (0.02 *. ft) p
          |> rotate_x (0.01 *. ft)
-         |> rotate_z (0.005 *. ft))
-  |> model coords |> List.sort point_z_cmp |> List.rev
-  |> render_to_primitives ft s |> List.filter filter_tri
-  |> Framebuffer.render fb;
+         |> rotate_z (0.001 *. ft))
+  |> model coords |> List.sort point_z_cmp |> render_to_primitives ft s
+  |> List.filter filter_tri |> Framebuffer.render fb;
 
   fb
 
 let () =
   let colors, coords, points = Krait.model in
 
-  let p = Palette.of_list (0x00 :: color_mung colors) in
+  let p = Palette.of_list (0x00 :: 0xFFFFFF :: color_mung colors) in
   Screen.create 640 480 1 p |> Base.run "Carnage" None (tick (coords, points))
