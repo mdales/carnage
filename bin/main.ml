@@ -121,7 +121,8 @@ let tick ship t s _p i =
   fb
 
 let () =
-  let colors, coords, points = Krait.model in
-
-  let p = Palette.of_list (0x00 :: 0xFFFFFF :: color_mung colors) in
-  Screen.create 640 480 1 p |> Base.run "Carnage" None (tick (coords, points))
+  let p =
+    Palette.of_list (0x00 :: 0xFFFFFF :: color_mung Krait.Krait.colours)
+  in
+  Screen.create 640 480 1 p
+  |> Base.run "Carnage" None (tick Krait.Krait.(coordinates, points))
